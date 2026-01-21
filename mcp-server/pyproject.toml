@@ -6,5 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fastmcp==2.11.3",
+    "sqlmodel",
+    "psycopg2-binary",
+    "python-dotenv",
 ]
     
