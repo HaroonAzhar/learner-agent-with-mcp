@@ -1,5 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from .routers import auth
 
 app = FastAPI(title="Agentic LMS Backend")
@@ -17,6 +21,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+from .database import create_db_and_tables
+
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
 
 app.include_router(auth.router)
 from .routers import admin, teacher, student

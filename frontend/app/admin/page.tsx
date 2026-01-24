@@ -70,21 +70,47 @@ export default function AdminDashboard() {
         }
     };
 
-    const handleCreateUser = async (e: React.FormEvent) => {
+    // Edit State
+    const [isEditingUser, setIsEditingUser] = useState(false);
+    const [editUserId, setEditUserId] = useState<number | null>(null);
+
+    const openEditUserModal = (user: User) => {
+        setIsEditingUser(true);
+        setEditUserId(user.id);
+        setNewUser({ username: user.username, password: '', role: user.role });
+        setShowUserModal(true);
+    };
+
+    const handleSaveUser = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const res = await api.post('/admin/users', {
-                username: newUser.username,
-                password_hash: newUser.password, // Backend expects password_hash for creation
-                role: newUser.role
-            });
-            setUsers([...users, res.data]);
+            if (isEditingUser && editUserId) {
+                const payload: any = {
+                    username: newUser.username,
+                    role: newUser.role
+                };
+                if (newUser.password) {
+                    payload.password = newUser.password;
+                }
+                const res = await api.put(`/admin/users/${editUserId}`, payload);
+                setUsers(users.map(u => u.id === editUserId ? res.data : u));
+            } else {
+                const res = await api.post('/admin/users', {
+                    username: newUser.username,
+                    password_hash: newUser.password,
+                    role: newUser.role
+                });
+                setUsers([...users, res.data]);
+            }
             setShowUserModal(false);
             setNewUser({ username: '', password: '', role: 'student' });
+            setIsEditingUser(false);
+            setEditUserId(null);
         } catch (err: any) {
-            alert(err.response?.data?.detail || 'Failed to create user');
+            alert(err.response?.data?.detail || 'Failed to save user');
         }
     };
+
 
     const handleDeleteUser = async (id: number) => {
         if (!confirm('Are you sure you want to delete this user?')) return;
@@ -221,7 +247,12 @@ export default function AdminDashboard() {
                         <div className="p-6 border-b border-gray-100 flex justify-between items-center">
                             <h2 className="text-lg font-semibold text-gray-900">Registered Users</h2>
                             <button
-                                onClick={() => setShowUserModal(true)}
+                                onClick={() => {
+                                    setNewUser({ username: '', password: '', role: 'student' });
+                                    setIsEditingUser(false);
+                                    setEditUserId(null);
+                                    setShowUserModal(true);
+                                }}
                                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm transition-colors"
                             >
                                 <Plus size={16} />
@@ -251,6 +282,9 @@ export default function AdminDashboard() {
                                             </span>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <button onClick={() => openEditUserModal(u)} className="text-blue-500 hover:text-blue-700 mr-2">
+                                                <Users size={18} />
+                                            </button>
                                             <button onClick={() => handleDeleteUser(u.id)} className="text-red-500 hover:text-red-700">
                                                 <Trash2 size={18} />
                                             </button>
@@ -312,12 +346,12 @@ export default function AdminDashboard() {
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
                         <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
                             <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-lg font-bold text-gray-900">Add New User</h3>
+                                <h3 className="text-lg font-bold text-gray-900">{isEditingUser ? 'Edit User' : 'Add New User'}</h3>
                                 <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600">
                                     <X size={24} />
                                 </button>
                             </div>
-                            <form onSubmit={handleCreateUser} className="space-y-4">
+                            <form onSubmit={handleSaveUser} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
                                     <input
@@ -329,10 +363,12 @@ export default function AdminDashboard() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Password {isEditingUser && <span className="text-xs text-gray-500 font-normal">(Leave blank to keep unchanged)</span>}
+                                    </label>
                                     <input
                                         type="password"
-                                        required
+                                        required={!isEditingUser}
                                         className="w-full px-3 py-2 border rounded-md"
                                         value={newUser.password}
                                         onChange={e => setNewUser({ ...newUser, password: e.target.value })}
@@ -351,7 +387,7 @@ export default function AdminDashboard() {
                                     </select>
                                 </div>
                                 <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700">
-                                    Create User
+                                    {isEditingUser ? 'Update User' : 'Create User'}
                                 </button>
                             </form>
                         </div>

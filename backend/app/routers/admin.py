@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlmodel import Session, select
-from typing import List, Annotated
+from sqlmodel import Session, select, SQLModel
+from typing import List, Annotated, Optional
 
 from ..database import get_session
 from ..models import User, UserRole, Class, ClassEnrollment
@@ -47,6 +47,43 @@ async def list_users(
     if role:
         query = query.where(User.role == role)
     return session.exec(query).all()
+
+class UserUpdate(SQLModel):
+    username: Optional[str] = None
+    role: Optional[UserRole] = None
+    password: Optional[str] = None
+
+@router.put("/users/{user_id}", response_model=User)
+async def update_user(
+    user_id: int,
+    user_update: UserUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Session = Depends(get_session)
+):
+    check_admin_role(current_user)
+    db_user = session.get(User, user_id)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user_update.username:
+        # Check uniqueness if username changed
+        if user_update.username != db_user.username:
+            existing = session.exec(select(User).where(User.username == user_update.username)).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Username already exists")
+        db_user.username = user_update.username
+        
+    if user_update.role:
+        db_user.role = user_update.role
+        
+    if user_update.password:
+        from ..auth import get_password_hash
+        db_user.password_hash = get_password_hash(user_update.password)
+        
+    session.add(db_user)
+    session.commit()
+    session.refresh(db_user)
+    return db_user
 
 @router.delete("/users/{user_id}")
 async def delete_user(

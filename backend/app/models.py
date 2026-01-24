@@ -60,15 +60,15 @@ class Resource(ResourceBase, table=True):
     occurrences: List["Occurrence"] = Relationship(back_populates="resource")
 
 class Topic(SQLModel, table=True):
-    id: Optional[str] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     outline: Optional[str] = None
     
     occurrences: List["Occurrence"] = Relationship(back_populates="topic")
 
 class Occurrence(SQLModel, table=True):
-    id: Optional[str] = Field(default=None, primary_key=True)
-    topic_id: str = Field(foreign_key="topic.id")
+    id: Optional[int] = Field(default=None, primary_key=True)
+    topic_id: int = Field(foreign_key="topic.id")
     resource_id: int = Field(foreign_key="resource.id")
     
     topic: Topic = Relationship(back_populates="occurrences")
@@ -76,10 +76,10 @@ class Occurrence(SQLModel, table=True):
     key_concepts: List["KeyConcept"] = Relationship(back_populates="occurrence")
 
 class KeyConcept(SQLModel, table=True):
-    id: Optional[str] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     description: Optional[str] = None
-    occurrence_id: str = Field(foreign_key="occurrence.id")
+    occurrence_id: int = Field(foreign_key="occurrence.id")
     timestamp_start: Optional[int] = None
     timestamp_end: Optional[int] = None
     page_number: Optional[int] = None
