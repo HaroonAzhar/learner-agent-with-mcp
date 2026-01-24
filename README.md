@@ -1,4 +1,4 @@
-# 💵💱💶 Currency Agent (A2A + ADK + MCP)
+# 💵💱💶 Fullstack Agentic LMS  (A2A + ADK + MCP + Frontend + Backend) using Gemini 3 Pro
 
 
 
