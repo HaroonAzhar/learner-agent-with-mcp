@@ -1,4 +1,5 @@
-# 💵💱💶 Fullstack Agentic LMS  (A2A + ADK + MCP + Frontend + Backend) using Gemini 3 Pro
+# 💵💱💶 Fullstack Agentic LMS  
+### (A2A + ADK + MCP + Frontend + Backend) using Gemini 3 Pro
 
 
 
@@ -6,7 +7,7 @@
 ## Overview
 
 The sample aims at laying out a foundation and showcasing the capabilities
-of A2A + ADK + MCP. It is a currency converter agent 
+of A2A + ADK + MCP. 
 
 ### <img height="20" width="20" src="images/mcp-favicon.ico" alt="MCP Logo" /> Model Context Protocol (MCP)
 
