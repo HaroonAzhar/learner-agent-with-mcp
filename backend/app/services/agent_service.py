@@ -195,15 +195,30 @@ def save_analysis_results(resource_id: int, data: dict):
         logger.error(f"Failed to save analysis results: {e}")
 
 def parse_timestamp(ts):
-    # simplistic parser, convert "00:10" to seconds or keep as string?
-    # KeyConcept.timestamp_start is int (optional).
-    # If string is passed, we might need a converter.
-    # For now, let's assume 0 for error or try to parse
-    try:
-        # If "MM:SS"
-        if isinstance(ts, str) and ":" in ts:
-            parts = ts.split(":")
-            return int(parts[0]) * 60 + int(parts[1])
+    """
+    Parses timestamp from various formats (int, string int, "MM:SS") to seconds (int).
+    """
+    if ts is None:
         return 0
-    except:
+    
+    try:
+        if isinstance(ts, int) or isinstance(ts, float):
+            return int(ts)
+            
+        if isinstance(ts, str):
+            ts = ts.strip()
+            if ":" in ts:
+                parts = ts.split(":")
+                # Handle HH:MM:SS or MM:SS
+                if len(parts) == 3:
+                     return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                elif len(parts) == 2:
+                     return int(parts[0]) * 60 + int(parts[1])
+            else:
+                # Try parsing as simple number string
+                return int(float(ts))
+                
+        return 0
+    except Exception as e:
+        logger.warning(f"Failed to parse timestamp {ts}: {e}")
         return 0

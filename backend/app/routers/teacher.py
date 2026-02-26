@@ -7,6 +7,9 @@ from ..database import get_session
 from ..models import User, UserRole, Class, Resource, Assignment, Grade, ResourceType, KeyConcept, Topic, Occurrence
 from ..auth import get_current_user
 from ..services.agent_service import trigger_resource_analysis
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/teacher",
@@ -30,37 +33,37 @@ async def add_resource(
 ):
     check_teacher_role(current_user)
     
-    # Upload to GCS
-    # Generate a unique path: classes/{class_id}/resources/{filename}
-    destination = f"classes/{class_id}/resources/{file.filename}"
-    public_url = await upload_to_gcs(file, destination)
-    
-    resource_data = Resource(
-        title=title,
-        type=type,
-        url=public_url,
-        class_id=class_id,
-        teacher_id=current_user.id
-    )
-    
-    session.add(resource_data)
-    session.commit()
-    session.refresh(resource_data)
-    
-    # Trigger Agent Analysis in Background
-    # Trigger Agent Analysis Synchronously (Wait for completion)
-    # This ensures the user sees the spinner until analysis is actually stored.
+    logger.info(f"Attempting to upload resource: {title}, type: {type}, class_id: {class_id}")
     try:
-        await trigger_resource_analysis(resource_data.id, resource_data.url)
+        # Upload to GCS
+        destination = f"classes/{class_id}/resources/{file.filename}"
+        public_url = await upload_to_gcs(file, destination)
+        logger.info(f"GCS Upload successful: {public_url}")
+        
+        resource_data = Resource(
+            title=title,
+            type=type,
+            url=public_url,
+            class_id=class_id,
+            teacher_id=current_user.id
+        )
+        
+        session.add(resource_data)
+        session.commit()
+        session.refresh(resource_data)
+        logger.info(f"Resource saved to DB: {resource_data.id}")
+        
+        try:
+            await trigger_resource_analysis(resource_data.id, resource_data.url)
+        except Exception as e:
+            logger.error(f"Analysis trigger failed (non-blocking): {e}")
+            pass
+        
+        return resource_data
+
     except Exception as e:
-        # Log error but don't fail the upload entirely? 
-        # Or fail it? User wants "until backend gets response".
-        # If agent fails, we probably should let the upload succeed but analysis fail.
-        # But for "successful storage" requirement, maybe we shouldn't error 500.
-        print(f"Analysis failed: {e}")
-        pass
-    
-    return resource_data
+        logger.error(f"Error in add_resource: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/assignments", response_model=Assignment)
 async def create_assignment(
@@ -212,3 +215,38 @@ async def update_key_concept(
     session.commit()
     session.refresh(concept)
     return concept
+
+@router.delete("/resources/{resource_id}")
+async def delete_resource(
+    resource_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Session = Depends(get_session)
+):
+    check_teacher_role(current_user)
+    resource = session.get(Resource, resource_id)
+    if not resource:
+        raise HTTPException(status_code=404, detail="Resource not found")
+        
+    # Check ownership (Teacher must own the class)
+    # We need to fetch the class
+    class_obj = session.get(Class, resource.class_id)
+    if class_obj and class_obj.teacher_id != current_user.id and current_user.role != UserRole.ADMIN:
+         raise HTTPException(status_code=403, detail="Not authorized to delete this resource")
+
+    # Manually delete related data (Occurrences -> KeyConcepts)
+    # 1. Get Occurrences
+    occurrences = session.exec(select(Occurrence).where(Occurrence.resource_id == resource_id)).all()
+    
+    for occ in occurrences:
+        # 2. Delete KeyConcepts for this occurrence
+        concepts = session.exec(select(KeyConcept).where(KeyConcept.occurrence_id == occ.id)).all()
+        for c in concepts:
+            session.delete(c)
+        # 3. Delete Occurrence
+        session.delete(occ)
+        
+    # 4. Delete Resource
+    session.delete(resource)
+    session.commit()
+    
+    return {"ok": True}
